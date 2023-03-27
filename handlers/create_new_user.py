@@ -7,8 +7,7 @@ from aiogram import Dispatcher
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from create_bot import bots
-
-users = ['44']  # тут должны быть данные из БД, точнее где идет проверка
+from DB.connect_bd import insert_data_users_bd, check_user_name_users_bd
 
 
 class CreateNewUsers(StatesGroup):
@@ -27,7 +26,7 @@ async def cmd_check(callback: types.CallbackQuery):
 async def process_user_name(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['user_name'] = message.text
-    if data['user_name'] in users:
+    if check_user_name_users_bd(data['user_name']):
         await message.reply('Пользователь с таким логином уже существует, измените его название')
     else:
         await CreateNewUsers.next()
@@ -65,16 +64,18 @@ async def process_payment_duration(message: types.Message, state: FSMContext):
 
 
 async def check_and_save(callback: types.CallbackQuery, state: FSMContext):
-    if callback.data == "save_new_user":
-        await callback.message.answer("Новый пользователь успешно сохранен")
-    else:
-        await callback.message.answer("Отменено создание нового пользователя"),
+    async with state.proxy() as data:
+        if callback.data == "save_new_user":
+            insert_data_users_bd([data['user_name'], data['price'], data['payment_duration']])
+            await callback.message.answer("Новый пользователь успешно сохранен")
+        else:
+            await callback.message.answer("Отменено создание нового пользователя"),
 
-    current_state = await state.get_state()
-    if current_state is None:
-        return
+        current_state = await state.get_state()
+        if current_state is None:
+            return
 
-    await state.finish()
+        await state.finish()
 
 
 def register_handler_create_new_user(bot: Dispatcher):
