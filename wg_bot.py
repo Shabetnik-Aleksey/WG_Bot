@@ -7,11 +7,10 @@ from handlers import create_new_user, resource_status, user_management
 
 @bot.message_handler(commands=['start'])
 async def start_message(message):
-    kb = InlineKeyboardMarkup(row_width=3)\
-        .add(InlineKeyboardButton(text="Управление пользователями", callback_data="user_management")) \
-        .add(InlineKeyboardButton(text="Новый пользователь", callback_data="create_new_user")) \
-        .add(InlineKeyboardButton(text="Состояние ресурсов", callback_data="resource_status"))
-
+    kb = InlineKeyboardMarkup(row_width=2)\
+        .insert(InlineKeyboardButton(text="Управление пользователями", callback_data="user_management")) \
+        .insert(InlineKeyboardButton(text="Новый пользователь", callback_data="create_new_user")) \
+        .insert(InlineKeyboardButton(text="Состояние ресурсов", callback_data="resource_status"))
     await message.reply("Выбор необходимого действия", reply_markup=kb)
 
 
