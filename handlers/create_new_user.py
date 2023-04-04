@@ -2,12 +2,12 @@ import aiogram.utils.markdown as md
 from aiogram import types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
-from aiogram.types import ParseMode
 from aiogram import Dispatcher
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from datetime import datetime, timedelta
 
 from DB.connect_bd import insert_data_users_bd, check_user_name_users_bd, get_all_tariff, get_tariff
+from gen_qrcode.generate_qr import generate_code
 
 
 class CreateNewUsers(StatesGroup):
@@ -70,7 +70,6 @@ async def process_payment_duration(callback: types.CallbackQuery, state: FSMCont
                 sep='\n'
                 ),
         reply_markup=kb,
-        parse_mode=ParseMode.MARKDOWN,
     )
     await CreateNewUsers.next()
 
@@ -96,6 +95,11 @@ async def check_and_save(callback: types.CallbackQuery, state: FSMContext):
 
             insert_data_users_bd([data['user_name'], tariff_price, data['price'], key, next_date.strftime('%d.%m.%Y'),
                                   blocked, tariff_speed, current_date.strftime('%d.%m.%Y %H:%M')])
+
+            generate_code(key)
+
+            photo = open('code.png', 'rb')
+            await callback.message.answer_photo(photo, caption="caption")
 
             await callback.message.answer("Новый пользователь успешно сохранен")
         else:

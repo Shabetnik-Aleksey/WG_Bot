@@ -57,7 +57,7 @@ def generate_users_markup(data):
     markup = InlineKeyboardMarkup()
     markup.row_width = 3
     for i in data:
-        markup.add(InlineKeyboardButton(text=i, callback_data=i))
+        markup.insert(InlineKeyboardButton(text=i, callback_data=i))
     return markup
 
 
@@ -81,11 +81,11 @@ async def blocking_and_deleting_users_step_2(callback: types.CallbackQuery, stat
     async with state.proxy() as data:
         data['user_name'] = callback.data
 
-    kb = InlineKeyboardMarkup(row_width=2).add(
+    kb = InlineKeyboardMarkup(row_width=2).insert(
         InlineKeyboardButton(text="Disable peer", callback_data="disable_peer")) \
-        .add(
+        .insert(
         InlineKeyboardButton(text="Delete peer", callback_data="delete_peer")) \
-        .add(InlineKeyboardButton(text="Отмена", callback_data="canceled_manage_user"))
+        .insert(InlineKeyboardButton(text="Отмена", callback_data="canceled_manage_user"))
     await callback.answer("")
     await callback.message.answer(f'Пользователь: {callback.data}', reply_markup=kb)
     await UserManagement.next()
@@ -137,9 +137,11 @@ async def restrictions_users_speed(message: types.Message, state: FSMContext):
 
 async def payments_users_in_this_mounts(callback: types.CallbackQuery):
     kb = InlineKeyboardMarkup(row_width=2) \
-        .add(InlineKeyboardButton(text="Показать пользователей, которым платить в этом месяце",
+        .insert(InlineKeyboardButton(text="Показать пользователей, которым платить в этом месяце",
                                   callback_data="show_pay_users")) \
-        .add(InlineKeyboardButton(text="Показать дату следующей блокировки", callback_data="next_lock_date")) \
+        .insert(InlineKeyboardButton(text="Показать дату следующей блокировки", callback_data="next_lock_date")) \
+        .insert(InlineKeyboardButton(text="Управление тарифами", callback_data="tariff_management_wg")) \
+
 
     await callback.message.answer("Меню управления оплатами", reply_markup=kb)
 

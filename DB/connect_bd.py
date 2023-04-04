@@ -37,7 +37,7 @@ def create_new_table_users_tariff():
         sqlite_connection = sqlite3.connect(PATH_BD)
         sqlite_create_table_query = '''CREATE TABLE wg_tariff (
                                     id INTEGER PRIMARY KEY,
-                                    title_tarif TEXT NOT NULL UNIQUE,
+                                    title_tariff TEXT NOT NULL UNIQUE,
                                     speed INTEGER,
                                     price INTEGER);'''
 
@@ -57,12 +57,13 @@ def create_new_table_users_tariff():
             print("Соединение с SQLite закрыто")
 
 
-
-
-def insert_data_users_bd(value):
+def insert_data_users_bd(value, table='wg_users'):
     conn = sqlite3.connect(PATH_BD)
     cur = conn.cursor()
-    cur.execute("INSERT INTO 'wg_users' (name, price, balance, key, date_pay, blocked, speed, joining_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", value)
+    if table == 'wg_users':
+        cur.execute("INSERT INTO 'wg_users' (name, price, balance, key, date_pay, blocked, speed, joining_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", value)
+    if table == 'wg_tariff':
+        cur.execute("INSERT INTO 'wg_tariff' (title_tariff, speed, price) VALUES (?, ?, ?)", value)
     conn.commit()
 
 
@@ -78,7 +79,7 @@ def get_all_tariff():
     conn = sqlite3.connect(PATH_BD)
     conn.row_factory = lambda cursor, row: row[0]
     cur = conn.cursor()
-    cur.execute(f"select title_tarif from wg_tariff")
+    cur.execute(f"select title_tariff from wg_tariff")
     title_tariff = cur.fetchall()
     return title_tariff
 
@@ -88,9 +89,9 @@ def get_tariff(value, type_search='speed'):
     conn.row_factory = lambda cursor, row: row[0]
     cur = conn.cursor()
     if type_search == 'speed':
-        cur.execute(f"select speed from 'wg_tariff' where `title_tarif` = '{value}'")
+        cur.execute(f"select speed from 'wg_tariff' where `title_tariff` = '{value}'")
     elif type_search == 'price':
-        cur.execute(f"select price from 'wg_tariff' where `title_tarif` = '{value}'")
+        cur.execute(f"select price from 'wg_tariff' where `title_tariff` = '{value}'")
     name = cur.fetchone()
     return name
 
@@ -112,10 +113,24 @@ def value_update(name, value, typs='blocked'):
     cur = conn.cursor()
     if typs == 'blocked':
         cur.execute(f'''UPDATE 'wg_users' SET {typs} = ? WHERE name = ?''', (value, name))
-    if typs == 'balance':
+    elif typs == 'balance':
+        cur.execute(f'''UPDATE 'wg_users' SET {typs} = ? WHERE name = ?''', (value, name))
+    elif typs == 'speed':
         cur.execute(f'''UPDATE 'wg_users' SET {typs} = ? WHERE name = ?''', (value, name))
     conn.commit()
 
+
+def value_delete(name, tables='wg_users'):
+    conn = sqlite3.connect(PATH_BD)
+    cur = conn.cursor()
+
+    if tables == 'wg_users':
+        cur.execute(f'''DELETE from 'wg_users' WHERE name = ?''', (name,))
+
+    elif tables == 'wg_tariff':
+        cur.execute(f'''DELETE from 'wg_tariff' WHERE title_tariff = ?''', (name,))
+
+    conn.commit()
 
 def get_all_users():
     conn = sqlite3.connect(PATH_BD)
