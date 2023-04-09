@@ -48,7 +48,7 @@ async def process_user_price(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
         data['price'] = message.text
     if data['price'].isdigit() is not True:
-        await message.reply('Введите суму цифрами, либо 0')
+        await message.reply('Введите сумму цифрами, либо 0')
     else:
         await CreateNewUsers.next()
         await message.reply("Выберите тариф для пользователя", reply_markup=generate_users_tarif(get_all_tariff()))
@@ -59,7 +59,7 @@ async def process_payment_duration(callback: types.CallbackQuery, state: FSMCont
         data['tariff'] = callback.data
     await callback.answer("")
     kb = InlineKeyboardMarkup(row_width=2).insert(InlineKeyboardButton(text="Поддтвердить и сохранить",
-                                                                    callback_data="save_new_user")) \
+                                                                       callback_data="save_new_user")) \
         .insert(InlineKeyboardButton(text="Отменить", callback_data="cancel_handler"))
     block = 'Внесенной суммы недостаточно для активации тарифа'
     not_block = f"Активация тарифа - {datetime.now().strftime('%d.%m.%Y')}"
@@ -80,7 +80,7 @@ async def process_payment_duration(callback: types.CallbackQuery, state: FSMCont
 
 def generate_key():
     alphabet = string.ascii_letters + string.digits
-    password = ''.join(secrets.choice(alphabet) for i in range(43))
+    password = ''.join(secrets.choice(alphabet) for _ in range(43))
     return f"{password}="
 
 
@@ -105,8 +105,8 @@ async def check_and_save(callback: types.CallbackQuery, state: FSMContext):
 
             ssh = mikro_hadlers.ControlMikrotik()
             ip = ssh.get_free_ip()
-            ssh.create_new_users(ip, key, data['user_name'])
-            ssh.create_queue_users(ip, data['user_name'])
+            ssh.create_new_users(ip_a=ip, key=key, name_user=data['user_name'])
+            ssh.create_queue_users(name_user=data['user_name'], tariff_speed=tariff_speed, ip_a=ip)
             ssh.init_disconnect_mikro()
 
             insert_data_users_bd([data['user_name'], tariff_price, data['price'], key, next_date.strftime('%d.%m.%Y'),

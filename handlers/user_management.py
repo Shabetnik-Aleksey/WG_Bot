@@ -6,6 +6,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from create_bot import bots
 from DB.connect_bd import get_all_users, value_update, get_pay_this_mouth
+from mikrotik_control import mikro_hadlers
 
 
 class UserManagement(StatesGroup):
@@ -43,30 +44,45 @@ async def process_payment_duration(callback: types.CallbackQuery):
 
 async def show_all_users(callback: types.CallbackQuery):
     """
-    Метод возвращает всех абонентов в базе данных
+    Метод возвращает всех peer созданых в роутере
     :param callback:
     :return:
     """
+    ssh = mikro_hadlers.ControlMikrotik()
+    ssh.get_peers_all()
+    ssh.init_disconnect_mikro()
 
+    conf_file = open('all_users.txt', 'rb')
     await callback.answer("")
-    await callback.message.answer("Показать всех абонентов")
+    await callback.message.answer_document(conf_file)
 
 
 def generate_users_markup(data):
-
+    """
+    Генератор клавиатру
+    :param data:
+    :return:
+    """
     markup = InlineKeyboardMarkup()
     markup.row_width = 3
     for i in data:
         markup.insert(InlineKeyboardButton(text=i, callback_data=i))
+    markup.insert(InlineKeyboardButton(text="Отмена", callback_data="cancel_handler"))
+
     return markup
 
 
 def generate_users_markup_dict(data):
-
+    """
+    Генератор клавиатру
+    :param data:
+    :return:
+    """
     markup = InlineKeyboardMarkup()
     markup.row_width = 3
     for i in data:
-        markup.add(InlineKeyboardButton(text=f"{i['name']} дата списания: {i['date']}, сумма в месяц - {i['price']}", callback_data=i['name']))
+        markup.add(InlineKeyboardButton(text=f"{i['name']} дата списания: {i['date']}, сумма в месяц - {i['price']}",
+                                        callback_data=i['name']))
     return markup
 
 
@@ -85,7 +101,8 @@ async def blocking_and_deleting_users_step_2(callback: types.CallbackQuery, stat
         InlineKeyboardButton(text="Disable peer", callback_data="disable_peer")) \
         .insert(
         InlineKeyboardButton(text="Delete peer", callback_data="delete_peer")) \
-        .insert(InlineKeyboardButton(text="Отмена", callback_data="canceled_manage_user"))
+        .insert(InlineKeyboardButton(text="Отмена", callback_data="canceled_manage_user")) \
+        .insert(InlineKeyboardButton(text="Enable peer", callback_data="enable_manage_user"))
     await callback.answer("")
     await callback.message.answer(f'Пользователь: {callback.data}', reply_markup=kb)
     await UserManagement.next()
@@ -95,14 +112,40 @@ async def blocking_and_deleting_users_step_3(callback: types.CallbackQuery, stat
 
     async with state.proxy() as data:
         if callback.data == "disable_peer":
+
+            ssh = mikro_hadlers.ControlMikrotik()
+            ssh.change_state_peers(ssh.get_id_peers(data['user_name']), state_peer='disable_peer',
+                                   user_name=data['user_name'])
+            ssh.init_disconnect_mikro()
+
             value_update(data['user_name'], '1')
+            await callback.answer("")
             await callback.message.answer(f"Успешно заблоикрован peer для {data['user_name']}")
 
+        elif callback.data == "enable_manage_user":
+
+            ssh = mikro_hadlers.ControlMikrotik()
+            ssh.change_state_peers(ssh.get_id_peers(data['user_name']), state_peer='enable_manage_user',
+                                   user_name=data['user_name'])
+            ssh.init_disconnect_mikro()
+
+            value_update(data['user_name'], '0')
+            await callback.answer("")
+            await callback.message.answer(f"Успешно активирован peer для {data['user_name']}")
+
         elif callback.data == "delete_peer":
-            value_update(data['user_name'], '2')
+
+            ssh = mikro_hadlers.ControlMikrotik()
+            ssh.change_state_peers(ssh.get_id_peers(data['user_name']), state_peer='delete_peer',
+                                   user_name=data['user_name'])
+            ssh.init_disconnect_mikro()
+
+            value_update(data['user_name'], '2', typs='delete_row')
+            await callback.answer("")
             await callback.message.answer(f"Успешно удален peer для {data['user_name']}")
 
         else:
+            await callback.answer("")
             await callback.message.answer(f"Отмена для {data['user_name']}")
 
         await state.finish()
@@ -128,6 +171,11 @@ async def restrictions_users_speed(message: types.Message, state: FSMContext):
         data['user_speed'] = message.text
 
     if message.text.isdigit():
+
+        ssh = mikro_hadlers.ControlMikrotik()
+        ssh.create_queue_users(data['user_name'], data['user_speed'], type_set='set')
+        ssh.init_disconnect_mikro()
+
         value_update(data['user_name'], data['user_speed'], 'speed')
         await bots.send_message(message.chat.id, f"Выставили ограничение скорости в {message.text}")
         await state.finish()
@@ -137,28 +185,44 @@ async def restrictions_users_speed(message: types.Message, state: FSMContext):
 
 async def payments_users_in_this_mounts(callback: types.CallbackQuery):
     kb = InlineKeyboardMarkup(row_width=2) \
-        .insert(InlineKeyboardButton(text="Показать пользователей, которым платить в этом месяце",
-                                  callback_data="show_pay_users")) \
-        .insert(InlineKeyboardButton(text="Показать дату следующей блокировки", callback_data="next_lock_date")) \
+        .insert(InlineKeyboardButton(text="платить в этом месяце", callback_data="show_pay_users")) \
+        .insert(InlineKeyboardButton(text="Внести оплату", callback_data="make_a_payment")) \
         .insert(InlineKeyboardButton(text="Управление тарифами", callback_data="tariff_management_wg")) \
 
-
+    await callback.answer("")
     await callback.message.answer("Меню управления оплатами", reply_markup=kb)
 
 
-async def payments_users_in_this_mounts_step_2(callback: types.CallbackQuery):
+async def make_a_payment_users_step_1(callback: types.CallbackQuery):
     await UserManagementMakePayment.user_name.set()
     await callback.answer("")
     await UserManagementMakePayment.next()
-    await callback.message.answer("Этим пользователям необходимо оплатить в этом месяце"
-                                  , reply_markup=generate_users_markup_dict(get_pay_this_mouth()))
+    await callback.message.answer("Выбор пользователя для внесения оплаты",
+                                  reply_markup=generate_users_markup(get_all_users()))
+
+
+async def payments_users_in_this_mounts_step_2(callback: types.CallbackQuery):
+
+    if get_pay_this_mouth():
+        await UserManagementMakePayment.user_name.set()
+        await callback.answer("")
+        await UserManagementMakePayment.next()
+        await callback.message.answer("Этим пользователям необходимо оплатить в этом месяце",
+                                      reply_markup=generate_users_markup_dict(get_pay_this_mouth()))
+    else:
+        await callback.message.answer('Нет пользователей, которым необходимо вносить оплату в этом месяце')
 
 
 async def make_payments_users_step_2(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer("")
     async with state.proxy() as data:
         data['user_name'] = callback.data
-    await UserManagementMakePayment.next()
-    await callback.message.answer('Введите сумму пополнения')
+    if data['user_name'] == 'cancel_handler':
+        await state.finish()
+        await callback.message.answer('Действие отменено')
+    else:
+        await UserManagementMakePayment.next()
+        await callback.message.answer('Введите сумму пополнения')
 
 
 async def make_payments_users_step_3(message: types.Message, state: FSMContext):
@@ -190,3 +254,5 @@ def register_handler_user_management(bot: Dispatcher):
     bot.register_callback_query_handler(payments_users_in_this_mounts_step_2, text='show_pay_users')
     bot.register_callback_query_handler(make_payments_users_step_2, state=UserManagementMakePayment.set_user_payment)
     bot.register_message_handler(make_payments_users_step_3, state=UserManagementMakePayment.set_user_payment2)
+    # make_a_payment
+    bot.register_callback_query_handler(make_a_payment_users_step_1, text='make_a_payment')
