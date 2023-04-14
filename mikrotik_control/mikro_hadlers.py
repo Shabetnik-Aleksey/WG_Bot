@@ -47,7 +47,6 @@ class ControlMikrotik:
         :param name_user:
         :return:
         """
-
         answer = self.ssh.send_command(f'/interface/wireguard/peers/add allowed-address={ip_a}/32 '
                                        f'interface={self.interface_peer} public-key="{key}" comment={name_user}')
 
@@ -144,6 +143,16 @@ class ControlMikrotik:
         """
 
         system_resource = self.ssh.send_command(f'/system/resource print').replace(' ', '')
+        return system_resource
+
+    def get_server_pub_key(self):
+        """
+        Метод,который возвращает системные ресурсы роутера
+        :return:
+        """
+
+        system_resource = self.ssh.send_command(f'/interface/wireguard/print proplist=public-key val'
+                                                f'ue-list').replace('public-key: ', '')
         return system_resource
 
 

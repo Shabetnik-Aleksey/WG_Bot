@@ -6,7 +6,7 @@ def generate_code(client_priv_key, current_ip, server_pub_key):
     value = "[Interface]\n" \
             f"PrivateKey = {client_priv_key}\n" \
             f"Address = {current_ip}/32\n" \
-            'DNS = "8.8.8.8"\n' \
+            'DNS = 8.8.8.8\n' \
             "\n" \
             "[Peer]\n" \
             f"PublicKey = {server_pub_key}\n" \

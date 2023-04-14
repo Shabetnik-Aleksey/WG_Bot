@@ -1,5 +1,3 @@
-import string
-import secrets
 import aiogram.utils.markdown as md
 from aiogram import types
 from aiogram.dispatcher import FSMContext
@@ -7,6 +5,7 @@ from aiogram.dispatcher.filters.state import StatesGroup, State
 from aiogram import Dispatcher
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from datetime import datetime, timedelta
+import subprocess
 
 
 from DB.connect_bd import insert_data_users_bd, check_user_name_users_bd, get_all_tariff, get_tariff
@@ -78,16 +77,18 @@ async def process_payment_duration(callback: types.CallbackQuery, state: FSMCont
     await CreateNewUsers.next()
 
 
-def generate_key():
-    alphabet = string.ascii_letters + string.digits
-    password = ''.join(secrets.choice(alphabet) for _ in range(43))
-    return f"{password}="
+def gen_key(client_priv_key=None, value=None):
+    if client_priv_key:
+        cmd = 'wg genkey'
+        return subprocess.check_output(cmd, shell=True).decode('UTF-8').strip()
+    else:
+        cmd = f'echo {value} | wg pubkey'
+        return subprocess.check_output(cmd, shell=True).decode('UTF-8').strip()
 
 
 async def check_and_save(callback: types.CallbackQuery, state: FSMContext):
     async with state.proxy() as data:
         await callback.answer("")
-        key = generate_key()
 
         if callback.data == "save_new_user":
             tariff_speed = get_tariff(data['tariff'], type_search='speed')
@@ -103,16 +104,21 @@ async def check_and_save(callback: types.CallbackQuery, state: FSMContext):
                 next_date = current_date + timedelta(weeks=4)
                 blocked = False
 
+            client_priv_key = gen_key(client_priv_key=True)
+
+            cient_pub_key = gen_key(value=client_priv_key)
+
             ssh = mikro_hadlers.ControlMikrotik()
             ip = ssh.get_free_ip()
-            ssh.create_new_users(ip_a=ip, key=key, name_user=data['user_name'])
+            key = ssh.get_server_pub_key()
+            ssh.create_new_users(ip_a=ip, key=cient_pub_key, name_user=data['user_name'])
             ssh.create_queue_users(name_user=data['user_name'], tariff_speed=tariff_speed, ip_a=ip)
             ssh.init_disconnect_mikro()
 
             insert_data_users_bd([data['user_name'], tariff_price, data['price'], key, next_date.strftime('%d.%m.%Y'),
                                   blocked, tariff_speed, current_date.strftime('%d.%m.%Y %H:%M')])
 
-            generate_code(client_priv_key=generate_key(), current_ip=ip, server_pub_key=key)
+            generate_code(client_priv_key=client_priv_key, current_ip=ip, server_pub_key=key)
 
             photo = open('code.png', 'rb')
             conf_file = open('conf_settings.txt', 'rb')
