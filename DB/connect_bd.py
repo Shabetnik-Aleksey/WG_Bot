@@ -189,7 +189,8 @@ def spisanie():
     for i in title_tariff:
         telegram_bot_sendtext(f"Заблокировали {i['name']}, на счету не хватает денег для оплаты необходимо внести {i['balance'] - i['price']}")
 
-        value_update(i['name'], value=1, typs='blocked')
+        cur.execute(f'''UPDATE 'wg_users' SET blocked = 1 WHERE name = ?''', (i['name'], ))
+        conn.commit()
     return title_tariff
 
 
